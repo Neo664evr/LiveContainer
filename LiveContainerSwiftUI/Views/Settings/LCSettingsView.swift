@@ -242,6 +242,16 @@ struct LCSettingsView: View {
                     Text("lc.settings.silentOpenWebPageDesc".loc)
                 }
                 
+                Section {
+                    NavigationLink {
+                        LCLinkRoutingView()
+                    } label: {
+                        Text("Link Handling")
+                    }
+                } footer: {
+                    Text("Choose which guest app opens web links, URL schemes and domains.")
+                }
+                
                 if sharedModel.isHiddenAppUnlocked {
                     Section {
                         Toggle(isOn: $strictHiding) {

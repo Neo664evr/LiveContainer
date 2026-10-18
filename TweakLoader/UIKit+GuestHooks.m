@@ -313,7 +313,7 @@ void authenticateUser(void (^completion)(BOOL success, NSError *error)) {
 //   { "<guestBundleName>": { "web": true, "schemes": ["x"], "domains": ["x.com"] } }
 static NSString* LCGuestAppForURL(NSURL* url) {
     if(!url) return nil;
-    NSDictionary* rules = [NSUserDefaults.lcUserDefaults dictionaryForKey:@"LCLinkRoutingRules"];
+    NSDictionary* rules = [NSUserDefaults.lcSharedDefaults dictionaryForKey:@"LCLinkRoutingRules"];
     if(![rules isKindOfClass:NSDictionary.class] || rules.count == 0) return nil;
     NSString* scheme = url.scheme.lowercaseString ?: @"";
     NSString* host = url.host.lowercaseString ?: @"";
