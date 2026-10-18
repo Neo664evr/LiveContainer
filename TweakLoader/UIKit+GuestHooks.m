@@ -186,6 +186,10 @@ void openUniversalLink(NSString* decodedUrl) {
 }
 
 void LCOpenWebPage(NSString* webPageUrlString, NSString* originalUrl) {
+    if (LCRouteURLToGuestApp([NSURL URLWithString:webPageUrlString])) {
+        return;
+    }
+    
     if ([NSUserDefaults.lcUserDefaults boolForKey:@"LCOpenWebPageWithoutAsking"]) {
         openUniversalLink(webPageUrlString);
         return;
@@ -298,6 +302,49 @@ void authenticateUser(void (^completion)(BOOL success, NSError *error)) {
             }
         });
     }
+}
+
+// MARK: Link routing - send matching URLs to a chosen guest app
+// Rules live in the app group defaults under LCLinkRoutingRules:
+//   { "<guestBundleName>": { "web": true, "schemes": ["x"], "domains": ["x.com"] } }
+static NSString* LCGuestAppForURL(NSURL* url) {
+    if(!url) return nil;
+    NSDictionary* rules = [NSUserDefaults.lcUserDefaults dictionaryForKey:@"LCLinkRoutingRules"];
+    if(![rules isKindOfClass:NSDictionary.class] || rules.count == 0) return nil;
+    NSString* scheme = url.scheme.lowercaseString ?: @"";
+    NSString* host = url.host.lowercaseString ?: @"";
+    for(NSString* bundleName in rules) {
+        NSDictionary* rule = rules[bundleName];
+        if(![rule isKindOfClass:NSDictionary.class]) continue;
+        NSArray* schemes = rule[@"schemes"];
+        if([schemes isKindOfClass:NSArray.class] && [schemes containsObject:scheme]) return bundleName;
+        NSArray* domains = rule[@"domains"];
+        if(host.length && [domains isKindOfClass:NSArray.class]) {
+            for(NSString* domain in domains) {
+                if(![domain isKindOfClass:NSString.class] || domain.length == 0) continue;
+                if([host isEqualToString:domain] || [host hasSuffix:[@"." stringByAppendingString:domain]]) return bundleName;
+            }
+        }
+        if(([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) && [rule[@"web"] boolValue]) return bundleName;
+    }
+    return nil;
+}
+
+BOOL LCRouteURLToGuestApp(NSURL* url) {
+    NSString* target = LCGuestAppForURL(url);
+    if(!target) return NO;
+    NSString* selfBundleName = NSUserDefaults.lcMainBundle.bundlePath.lastPathComponent;
+    if([target isEqualToString:selfBundleName]) return NO;
+    NSData* data = [url.absoluteString dataUsingEncoding:NSUTF8StringEncoding];
+    if(!data) return NO;
+    NSCharacterSet* allowed = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"];
+    NSString* targetEncoded = [target stringByAddingPercentEncodingWithAllowedCharacters:allowed];
+    if(!targetEncoded.length) return NO;
+    NSString* urlStr = [NSString stringWithFormat:@"%@://livecontainer-launch?bundle-name=%@&open-url=%@", NSUserDefaults.lcAppUrlScheme, targetEncoded, [data base64EncodedStringWithOptions:0]];
+    NSURL* finalURL = [NSURL URLWithString:urlStr];
+    if(!finalURL) return NO;
+    [[UIApplication sharedApplication] openURL:finalURL options:@{} completionHandler:nil];
+    return YES;
 }
 
 void handleLiveContainerLaunch(NSString* bundleName, NSString* containerFolderName, NSURL* url) {
@@ -618,6 +665,11 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         return;
     }
     
+    if(LCRouteURLToGuestApp(url)) {
+        completion(YES);
+        return;
+    }
+    
     BOOL openSelf = canAppOpenItself(url);
     BOOL redirectToHost = shouldRedirectOpenURLToHost(url);;
     if(openSelf || redirectToHost) {
@@ -699,6 +751,10 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
 }
 
 - (void)hook_openURL:(NSURL *)url options:(UISceneOpenExternalURLOptions *)options completionHandler:(void (^)(BOOL success))completion {
+    if(LCRouteURLToGuestApp(url)) {
+        completion(YES);
+        return;
+    }
     BOOL openSelf = canAppOpenItself(url);
     BOOL redirectToHost = shouldRedirectOpenURLToHost(url);
     if(openSelf || redirectToHost) {
