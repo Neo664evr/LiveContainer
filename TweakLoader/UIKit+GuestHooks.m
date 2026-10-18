@@ -7,6 +7,10 @@
 
 UIInterfaceOrientation LCOrientationLock = UIInterfaceOrientationUnknown;
 NSMutableArray<NSString*>* LCSupportedUrlSchemes = nil;
+
+// Link routing helpers (defined further down; declared here because LCOpenWebPage uses them first)
+static NSString* LCGuestAppForURL(NSURL* url);
+BOOL LCRouteURLToGuestApp(NSURL* url);
 BOOL launchURLProcessed = NO;
 
 __attribute__((constructor))
