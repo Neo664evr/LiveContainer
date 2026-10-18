@@ -130,7 +130,7 @@ struct LCLinkRoutingView: View {
     }
 
     static func declaredSchemes(for appInfo: LCAppInfo) -> [String] {
-        guard let plist = NSDictionary(contentsOfFile: appInfo.bundlePath + "/Info.plist") else { return [] }
+        guard let plist = NSDictionary(contentsOfFile: appInfo.bundlePath() + "/Info.plist") else { return [] }
         let types = plist["CFBundleURLTypes"] as? [[String: Any]] ?? []
         var schemes: [String] = []
         for type in types {
